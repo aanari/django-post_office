@@ -1,6 +1,7 @@
 from threading import local
 
 from django.core.mail import get_connection
+from django.core.mail.backends.base import BaseEmailBackend
 
 from .settings import get_backend
 
@@ -12,6 +13,7 @@ class ConnectionHandler(object):
 
     Ensures only one instance of each alias exists per thread.
     """
+
     def __init__(self):
         self._connections = local()
 
@@ -26,15 +28,18 @@ class ConnectionHandler(object):
         try:
             backend = get_backend(alias)
         except KeyError:
-            raise KeyError('%s is not a valid backend alias' % alias)
+            raise KeyError("%s is not a valid backend alias" % alias)
 
-        connection = get_connection(backend)
+        if not isinstance(backend, BaseEmailBackend):
+            connection = get_connection(backend)
+        else:
+            connection = backend
         connection.open()
         self._connections.connections[alias] = connection
         return connection
 
     def all(self):
-        return getattr(self._connections, 'connections', {}).values()
+        return getattr(self._connections, "connections", {}).values()
 
     def close(self):
         for connection in self.all():
